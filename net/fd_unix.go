@@ -351,6 +351,11 @@ func (fd *netFD) Write(p []byte) (nn int, err error) {
 	return nn, err
 }
 
+func (fd *netFD) WriteMultiple(bufs [][]byte) (n int, err error) {
+	// not implemented
+	return 0, nil
+}
+
 func (fd *netFD) writeTo(p []byte, sa syscall.Sockaddr) (n int, err error) {
 	if err := fd.writeLock(); err != nil {
 		return 0, err

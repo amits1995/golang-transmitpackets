@@ -537,6 +537,24 @@ func (fd *netFD) Write(buf []byte) (int, error) {
 	return n, err
 }
 
+func (fd *netFD) WriteMultiple(bufs [][]byte) (int, error) {
+	if err := fd.writeLock(); err != nil {
+		return 0, err
+	}
+	defer fd.writeUnlock()
+	if race.Enabled {
+		race.ReleaseMerge(unsafe.Pointer(&ioSync))
+	}
+	o := &fd.wop
+	n, err := wsrv.ExecIO(o, "TransmitPackets", func(o *operation) error {
+		return syscall.TransmitPackets(o.fd.sysfd, bufs, &o.o)
+	})
+	if _, ok := err.(syscall.Errno); ok {
+		err = os.NewSyscallError("transmitpackets", err)
+	}
+	return n, err
+}
+
 func (fd *netFD) writeTo(buf []byte, sa syscall.Sockaddr) (int, error) {
 	if len(buf) == 0 {
 		return 0, nil

@@ -768,11 +768,15 @@ func LoadGetAddrInfo() error {
 	return procGetAddrInfoW.Find()
 }
 
-var connectExFunc struct {
+type extendedFunc struct{
 	once sync.Once
 	addr uintptr
 	err  error
 }
+
+var (
+	connectExFunc, transmitPacketsFunc extendedFunc
+)
 
 func LoadConnectEx() error {
 	connectExFunc.once.Do(func() {
@@ -792,6 +796,63 @@ func LoadConnectEx() error {
 			&n, nil, 0)
 	})
 	return connectExFunc.err
+}
+
+func LoadTransmitPackets() error {
+	transmitPacketsFunc.once.Do(func() {
+		var s Handle
+		s, transmitPacketsFunc.err = Socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+		if transmitPacketsFunc.err != nil {
+			return
+		}
+		defer CloseHandle(s)
+		var n uint32
+		transmitPacketsFunc.err = WSAIoctl(s,
+			SIO_GET_EXTENSION_FUNCTION_POINTER,
+			(*byte)(unsafe.Pointer(&WSAID_TRANSMITPACKETS)),
+			uint32(unsafe.Sizeof(WSAID_TRANSMITPACKETS)),
+			(*byte)(unsafe.Pointer(&transmitPacketsFunc.addr)),
+			uint32(unsafe.Sizeof(transmitPacketsFunc.addr)),
+			&n, nil, 0)
+	})
+	return transmitPacketsFunc.err
+}
+
+var (
+	 TP_ELEMENT_MEMORY  = 1
+	 TP_ELEMENT_FILE   =  2
+	 TP_ELEMENT_EOP     = 4
+)
+
+type TransmitPacketsElement struct {
+	dwElFlags uint32
+	cLength uint32
+	nFileOffset uint64
+	hFile uintptr
+	pBuffer uintptr
+}
+
+func transmitPackets(s Handle, bufs [][]byte, overlapped *Overlapped) (err error) {
+	var maxPacketLen = 0
+	tpElements := make([]TransmitPacketsElement, len(bufs))
+	for i,tpElement := range tpElements {
+		buffer := bufs[i]
+		if len(buffer) > maxPacketLen {
+			maxPacketLen = len(buffer)
+		}
+		tpElement.cLength = uint32(len(buffer))
+		tpElement.dwElFlags = uint32(TP_ELEMENT_MEMORY | TP_ELEMENT_EOP)
+		tpElement.pBuffer = uintptr(unsafe.Pointer(&buffer))
+	}
+	r1, _, e1 := Syscall6(transmitPacketsFunc.addr, 6, uintptr(s), uintptr(unsafe.Pointer(&tpElements)), uintptr(uint32(len(tpElements))), uintptr(uint32(maxPacketLen)), uintptr(unsafe.Pointer(overlapped)), 0)
+	if r1 == 0 {
+		if e1 != 0 {
+			err = error(e1)
+		} else {
+			err = EINVAL
+		}
+	}
+	return
 }
 
 func connectEx(s Handle, name unsafe.Pointer, namelen int32, sendBuf *byte, sendDataLen uint32, bytesSent *uint32, overlapped *Overlapped) (err error) {
@@ -816,6 +877,14 @@ func ConnectEx(fd Handle, sa Sockaddr, sendBuf *byte, sendDataLen uint32, bytesS
 		return err
 	}
 	return connectEx(fd, ptr, n, sendBuf, sendDataLen, bytesSent, overlapped)
+}
+
+func TransmitPackets(fd Handle, bufs [][]byte, overlapped *Overlapped) error {
+	err := LoadTransmitPackets()
+	if err != nil {
+		return errorspkg.New("failed to find TransmitPackets: " + err.Error())
+	}
+	return transmitPackets(fd, bufs, overlapped)
 }
 
 // Invented structures to support what package os expects.

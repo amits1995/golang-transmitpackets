@@ -150,6 +150,11 @@ func (fd *netFD) Write(b []byte) (n int, err error) {
 	return fd.data.Write(b)
 }
 
+func (fd *netFD) WriteMultiple(bufs [][]byte) (n int, err error) {
+	// not implemented
+	return 0, nil
+}
+
 func (fd *netFD) closeRead() error {
 	if !fd.ok() {
 		return syscall.EINVAL
