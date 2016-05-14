@@ -841,10 +841,10 @@ func transmitPackets(s Handle, bufs [][]byte, overlapped *Overlapped) (err error
 			maxPacketLen = len(buffer)
 		}
 		tpElement.cLength = uint32(len(buffer))
-		tpElement.dwElFlags = uint32(TP_ELEMENT_MEMORY | TP_ELEMENT_EOP)
-		tpElement.pBuffer = uintptr(unsafe.Pointer(&buffer))
+		tpElement.dwElFlags = uint32(uint32(TP_ELEMENT_MEMORY) | uint32(TP_ELEMENT_EOP))
+		tpElement.pBuffer = uintptr(unsafe.Pointer(&buffer[0]))
 	}
-	r1, _, e1 := Syscall6(transmitPacketsFunc.addr, 6, uintptr(s), uintptr(unsafe.Pointer(&tpElements)), uintptr(uint32(len(tpElements))), uintptr(uint32(maxPacketLen)), uintptr(unsafe.Pointer(overlapped)), 0)
+	r1, _, e1 := Syscall6(transmitPacketsFunc.addr, 6, uintptr(s), uintptr(unsafe.Pointer(&tpElements[0])), uintptr(uint32(len(tpElements))), uintptr(uint32(maxPacketLen)), uintptr(unsafe.Pointer(overlapped)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
 			err = error(e1)

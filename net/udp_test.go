@@ -76,6 +76,28 @@ func TestWriteToUDP(t *testing.T) {
 	testWriteToPacketConn(t, c.LocalAddr().String())
 }
 
+
+func TestWriteToUDPMultiple(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("only supported on windows")
+	}
+	rAddr, _ := ResolveUDPAddr("udp","8.8.8.8:53")
+	c, err := DialUDP("udp", nil, rAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	
+	packets := make([][]byte, 10)
+	for i := range packets {
+		packets[i] = make([]byte, 1000)
+	}
+	_, err = c.WriteMultiple(packets)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testWriteToConn(t *testing.T, raddr string) {
 	c, err := Dial("udp", raddr)
 	if err != nil {

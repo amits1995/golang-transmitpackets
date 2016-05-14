@@ -2,7 +2,7 @@
 
 package sys
 
-const DefaultGoroot = `c:\Go`
+const DefaultGoroot = `C:\Go`
 const TheVersion = `go1.6.2`
 const Goexperiment = ``
 const StackGuardMultiplier = 1
